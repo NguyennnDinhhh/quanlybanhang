@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Ban hang</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    .hidden { display: none; }
+    .container { max-width: 1000px; margin: auto; }
+    input, button, select { padding: 10px; margin: 5px 0; width: 100%; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    .action-btn { margin: 0 5px; }
+    #admin-login { margin-top: 20px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Trang Chu</h1>
+  <button onclick="showCustomerPage()">Trang Chu</button>
+  <button onclick="promptAdminLogin()">Admin</button>
+
+  <div id="customer-page" class="hidden">
+    <h2>Trang Chu</h2>
+    <table id="product-list">
+      <thead><tr><th>Ten SP</th><th>Gia</th><th>So luong</th><th>Ch?n</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <h3>Gio hang</h3>
+    <table id="cart-table">
+      <thead><tr><th>Ten SP</th><th>Gia</th><th>So luong</th><th>Thanh tien</th></tr></thead>
+      <tbody></tbody>
+      <tfoot><tr><td colspan="3"><strong>Tong cong</strong></td><td id="cart-total">0</td></tr></tfoot>
+    </table>
+    <h3>Thong tin mua hang</h3>
+    <input type="text" id="customer-name" placeholder="Ho ten">
+    <input type="text" id="customer-address" placeholder="Dia chi">
+    <button onclick="placeOrder()">Mua hang</button>
+    <h3>Lich su mua</h3>
+    <ul id="purchase-history"></ul>
+  </div>
+
+  <div id="admin-page" class="hidden">
+    <h2>Admin</h2>
+    <h3>Them san pham</h3>
+    <input type="text" id="new-product-name" placeholder="Ten san pham">
+    <input type="number" id="new-product-price" placeholder="Gia">
+    <input type="number" id="new-product-qty" placeholder="S? luong">
+    <button onclick="addProduct()">Them san pham</button>
+
+    <h3>Danh sach san pham</h3>
+    <table id="admin-product-list">
+      <thead><tr><th>Ten SP</th><th>Gia</th><th>So luong</th><th>Hanh dong</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h3>Lich su don hang</h3>
+    <ul id="order-list"></ul>
+  </div>
+</div>
+
+<script>
+  let products = JSON.parse(localStorage.getItem('products') || '[]');
+  let orders = JSON.parse(localStorage.getItem('orders') || '[]');
+  let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+
+  function saveData() {
+    localStorage.setItem('products', JSON.stringify(products));
+    localStorage.setItem('orders', JSON.stringify(orders));
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }
+
+  
+  function deleteOrder(index) {
+    if (confirm('Bạn có chắc muốn xoá đơn hàng này?')) {
+      orders.splice(index, 1);
+      saveData();
+      renderOrders();
+    }
+  }
+
+function showCustomerPage() {
+    document.getElementById('admin-page').classList.add('hidden');
+    document.getElementById('customer-page').classList.remove('hidden');
+    renderProducts();
+    renderCart();
+    renderPurchaseHistory();
+  }
+
+  function promptAdminLogin() {
+    const password = prompt('Nhap mat khau quan tri vien:');
+    if (password === '12345') {
+      showAdminPage();
+    } else {
+      alert('Sai mat khau!');
+    }
+  }
+
+  function showAdminPage() {
+    document.getElementById('customer-page').classList.add('hidden');
+    document.getElementById('admin-page').classList.remove('hidden');
+    renderAdminProductList();
+    renderOrders();
+  }
+
+  function renderProducts() {
+    const tbody = document.querySelector('#product-list tbody');
+    tbody.innerHTML = '';
+    products.forEach((p, i) => {
+      if (p.quantity > 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${p.name}</td>
+          <td>${p.price}</td>
+          <td><input type="number" min="1" max="${p.quantity}" value="1" id="qty-${i}"></td>
+          <td><button onclick="addToCart(${i})">Chon</button></td>
+        `;
+        tbody.appendChild(tr);
+      }
+    });
+  }
+
+  function addToCart(index) {
+    const qty = parseInt(document.getElementById(`qty-${index}`).value);
+    if (qty > products[index].quantity) return alert('Khong du hang!');
+    const existing = cart.find(item => item.name === products[index].name);
+    if (existing) {
+      existing.quantity += qty;
+    } else {
+      cart.push({ ...products[index], quantity: qty });
+    }
+    saveData();
+    alert('Ða them vao gio hang.');
+    renderCart();
+  }
+
+  function renderCart() {
+    const tbody = document.querySelector('#cart-table tbody');
+    const total = document.getElementById('cart-total');
+    tbody.innerHTML = '';
+    let grandTotal = 0;
+    cart.forEach(item => {
+      const subtotal = item.price * item.quantity;
+      grandTotal += subtotal;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${item.name}</td>
+        <td>${item.price}</td>
+        <td>${item.quantity}</td>
+        <td>${subtotal}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    total.textContent = grandTotal;
+  }
+
+  function renderPurchaseHistory() {
+    const ul = document.getElementById('purchase-history');
+    ul.innerHTML = '';
+    orders.forEach(order => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        Don hang: ${order.items.map(i => i.name + ' x' + i.quantity).join(', ')}
+        <br>Trang thai: <strong>${order.status}</strong>
+      `;
+      ul.appendChild(li);
+    });
+  }
+
+  function placeOrder() {
+    const name = document.getElementById('customer-name').value;
+    const address = document.getElementById('customer-address').value;
+    if (!cart.length) return alert('Chua ch?n s?n ph?m!');
+    if (!name || !address) return alert('Vui long nhap day du thong tin.');
+    const order = { name, address, items: [...cart], status: 'Cho duyet' };
+    orders.push(order);
+    cart.forEach(item => {
+      const index = products.findIndex(p => p.name === item.name);
+      if (index !== -1) products[index].quantity -= item.quantity;
+    });
+    cart = [];
+    alert('Mua hang thanh cong!');
+    saveData();
+    renderOrders();
+    renderProducts();
+    renderCart();
+    renderPurchaseHistory();
+  }
+
+  function addProduct() {
+    const name = document.getElementById('new-product-name').value;
+    const price = parseFloat(document.getElementById('new-product-price').value);
+    const qty = parseInt(document.getElementById('new-product-qty').value);
+    if (!name || isNaN(price) || isNaN(qty)) return alert('Vui long nhap thong tin hop le.');
+    products.push({ name, price, quantity: qty });
+    alert('Them san pham thanh cong!');
+    saveData();
+    renderAdminProductList();
+  }
+
+  function renderAdminProductList() {
+    const tbody = document.querySelector('#admin-product-list tbody');
+    tbody.innerHTML = '';
+    products.forEach((p, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input value="${p.name}" onchange="products[${i}].name = this.value; saveData();"></td>
+        <td><input type="number" value="${p.price}" onchange="products[${i}].price = parseFloat(this.value); saveData();"></td>
+        <td><input type="number" value="${p.quantity}" onchange="products[${i}].quantity = parseInt(this.value); saveData();"></td>
+        <td><button onclick="deleteProduct(${i})">Xoa</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function deleteProduct(index) {
+    if (confirm('Ban co chac muon xoa?')) {
+      products.splice(index, 1);
+      saveData();
+      renderAdminProductList();
+    }
+  }
+
+  function renderOrders() {
+    const list = document.getElementById('order-list');
+    list.innerHTML = '';
+    orders.forEach((order, index) => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        Khách: ${order.name} - Dia chi: ${order.address} - San pham: ${order.items.map(i => i.name + ' x' + i.quantity).join(', ')}
+        <br>Trang thai: <strong>${order.status}</strong>
+        <br><button class=\"action-btn\" onclick=\"updateOrderStatus(${index}, 'Da duyet')\">Duyet</button>
+        <button class=\"action-btn\" onclick=\"updateOrderStatus(${index}, 'Da huy')\">Huy</button>
+        <button class=\"action-btn\" onclick=\"deleteOrder(${index})\">Xoá</button>
+      `;
+      list.appendChild(li);
+    });
+    renderPurchaseHistory();
+  }
+
+  function updateOrderStatus(index, status) {
+    orders[index].status = status;
+    saveData();
+    renderOrders();
+  }
+
+  showCustomerPage();
+</script>
+</body>
+</html>
+
+      
+  
