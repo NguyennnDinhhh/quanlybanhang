@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Quan ly ban hang</title>
+  <style>
+    body { font-family: Arial; max-width: 1000px; margin: auto; padding: 20px; }
+    input, button { margin: 5px; padding: 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; align-items: center; }
+    .row input[type="text"], .row input[type="number"] { width: 120px; }
+    h2 { margin-top: 30px; }
+    ul { padding-left: 20px; }
+    .checkbox { width: auto; }
+  </style>
+</head>
+<body>
+
+  <h1>                      Trang Chu</h1>
+
+  <h2>San pham</h2>
+  <input type="text" id="productName" placeholder="Ten san pham">
+  <input type="number" id="productPrice" placeholder="Gia">
+  <input type="number" id="productQuantity" placeholder="So luong">
+  <button onclick="addProduct()">Them</button>
+
+  <h2>Danh sach san pham</h2>
+  <div id="productList"></div>
+
+  <h2>Thong tin mua hang</h2>
+  <input type="text" id="customerName" placeholder="Ho ten">
+  <input type="text" id="customerAddress" placeholder="Dia chi">
+  <button onclick="purchaseSelected()">Mua san pham da chon</button>
+
+  <h2>Lich su khach hang da mua</h2>
+  <ul id="customerHistory"></ul>
+
+  <script>
+    let products = [];
+    const productList = document.getElementById('productList');
+    const customerHistory = document.getElementById('customerHistory');
+
+    function addProduct() {
+      const name = document.getElementById('productName').value.trim();
+      const price = parseFloat(document.getElementById('productPrice').value);
+      const quantity = parseInt(document.getElementById('productQuantity').value);
+
+      if (name && !isNaN(price) && !isNaN(quantity)) {
+        products.push({ id: Date.now(), name, price, quantity, selected: false, buyQty: 1 });
+        document.getElementById('productName').value = '';
+        document.getElementById('productPrice').value = '';
+        document.getElementById('productQuantity').value = '';
+        renderProducts();
+      }
+    }
+
+    function renderProducts() {
+      productList.innerHTML = '';
+      products.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `
+          <input type="checkbox" class="checkbox" ${p.selected ? 'checked' : ''} onchange="toggleSelect(${p.id}, this.checked)">
+          <input type="text" value="${p.name}" onchange="updateProduct(${p.id}, 'name', this.value)">
+          <input type="number" value="${p.price}" onchange="updateProduct(${p.id}, 'price', this.value)">
+          <input type="number" value="${p.quantity}" onchange="updateProduct(${p.id}, 'quantity', this.value)">
+          <label>Mua:</label>
+          <input type="number" min="1" value="${p.buyQty}" onchange="updateProduct(${p.id}, 'buyQty', this.value)">
+          <button onclick="deleteProduct(${p.id})">Xoa</button>
+        `;
+        productList.appendChild(row);
+      });
+    }
+
+    function toggleSelect(id, checked) {
+      products = products.map(p => p.id === id ? { ...p, selected: checked } : p);
+    }
+
+    function updateProduct(id, field, value) {
+      products = products.map(p => {
+        if (p.id === id) {
+          p[field] = field === 'name' ? value : parseFloat(value);
+        }
+        return p;
+      });
+      renderProducts();
+    }
+
+    function deleteProduct(id) {
+      products = products.filter(p => p.id !== id);
+      renderProducts();
+    }
+
+    function purchaseSelected() {
+      const name = document.getElementById('customerName').value.trim();
+      const address = document.getElementById('customerAddress').value.trim();
+
+      if (!name || !address) {
+        alert("Vui lòng nhap ho tên và dia chi.");
+        return;
+      }
+
+      let purchased = [];
+
+      products = products.map(p => {
+        if (p.selected && p.buyQty > 0 && p.buyQty <= p.quantity) {
+          p.quantity -= p.buyQty;
+          purchased.push(`${p.name} (SL: ${p.buyQty})`);
+          p.selected = false;
+        }
+        return p;
+      });
+
+      if (purchased.length > 0) {
+        customerHistory.innerHTML += `<li>${name} (${address}) da mua: ${purchased.join(", ")}</li>`;
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerAddress').value = '';
+      } else {
+        alert("Không có s?n ph?m h?p l? du?c ch?n d? mua.");
+      }
+
+      renderProducts();
+    }
+
+    renderProducts();
+  </script>
+
+</body>
+</html>
